@@ -35,7 +35,7 @@ const cleanText = (value = '') =>
     .replace(/[ \t]{2,}/g, ' ')
     .trim();
 
-export const extractFromHtml = (html) => {
+export const extractFromHtml = (html, baseUrl) => {
   const $ = cheerio.load(html);
   NOISE_SELECTORS.forEach((selector) => $(selector).remove());
 
@@ -53,13 +53,22 @@ export const extractFromHtml = (html) => {
   const description = cleanText(
     $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || ''
   );
-  const imageUrl = cleanText(
+  const rawImageUrl = cleanText(
     $('meta[property="og:image"]').attr('content') ||
     $('meta[name="twitter:image"]').attr('content') ||
     $('meta[property="og:image:url"]').attr('content') ||
     $('article img').first().attr('src') ||
     ''
   );
+  let imageUrl = rawImageUrl;
+  if (rawImageUrl && baseUrl) {
+    try {
+      const parsedImageUrl = new URL(rawImageUrl, baseUrl);
+      imageUrl = ['http:', 'https:'].includes(parsedImageUrl.protocol) ? parsedImageUrl.href : '';
+    } catch {
+      imageUrl = '';
+    }
+  }
 
   const limited = bodyText.slice(0, config.news.maxArticleChars);
   return { title, description, content: limited, imageUrl };
@@ -78,7 +87,7 @@ export const extractArticleContent = async ({ canonicalUrl, description = '', fe
   }
 
   try {
-    const { body, contentType } = await fetchPublicResource(canonicalUrl, {
+    const { body, contentType, finalUrl } = await fetchPublicResource(canonicalUrl, {
       accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5'
     });
 
@@ -91,7 +100,7 @@ export const extractArticleContent = async ({ canonicalUrl, description = '', fe
       };
     }
 
-    const extracted = extractFromHtml(body);
+    const extracted = extractFromHtml(body, finalUrl);
     const content = extracted.content || feedText;
     const resolvedImageUrl = extracted.imageUrl || initialImageUrl || '';
 

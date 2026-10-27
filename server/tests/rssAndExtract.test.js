@@ -44,6 +44,14 @@ describe('RSS parsing and extraction', () => {
     assert.doesNotMatch(result.content, /Cookie notice/);
   });
 
+  it('resolves relative article image URLs against the final page URL', () => {
+    const result = extractFromHtml(
+      '<html><head><meta property="og:image" content="/images/story.jpg"></head><body></body></html>',
+      'https://example.com/news/story'
+    );
+    assert.equal(result.imageUrl, 'https://example.com/images/story.jpg');
+  });
+
   it('flags incomplete HTML as too short for a full extraction', () => {
     const result = extractFromHtml('<html><body><p>Hi</p></body></html>');
     assert.ok(result.content.length < 80);

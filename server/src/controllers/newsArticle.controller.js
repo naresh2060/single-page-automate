@@ -7,6 +7,21 @@ import { sendSuccess, sendError } from '../utils/response.js';
 import { getConfiguredPageId, config } from '../config/env.js';
 import { facebookService } from '../services/facebook.service.js';
 import { polishArticleCaption } from '../services/news/polisher.service.js';
+import { assertSafePublicUrl } from '../utils/ssrf.js';
+
+const resolveArticleMediaUrl = async (article, requestedMediaUrl) => {
+  const mediaUrl = typeof requestedMediaUrl === 'string' ? requestedMediaUrl.trim() : '';
+  if (!mediaUrl) {
+    return article.imageUrl || '';
+  }
+
+  const safeUrl = await assertSafePublicUrl(mediaUrl);
+  if (article.imageUrl !== safeUrl.href) {
+    article.imageUrl = safeUrl.href;
+    await article.save();
+  }
+  return safeUrl.href;
+};
 
 export const listNewsArticles = async (req, res, next) => {
   try {
@@ -52,8 +67,8 @@ export const getNewsArticle = async (req, res, next) => {
   }
 };
 
-import * as cheerio from 'cheerio';
 import { fetchPublicResource } from '../utils/httpFetch.js';
+import { extractFromHtml } from '../services/news/articleExtract.service.js';
 
 export const polishNewsArticle = async (req, res, next) => {
   try {
@@ -73,15 +88,12 @@ export const polishNewsArticle = async (req, res, next) => {
     // Auto-resolve image if not already cached
     if (!article.imageUrl && article.canonicalUrl) {
       try {
-        const { body } = await fetchPublicResource(article.canonicalUrl, {
+        const { body, finalUrl } = await fetchPublicResource(article.canonicalUrl, {
           accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5'
         });
-        const $ = cheerio.load(body);
-        const ogImg = $('meta[property="og:image"]').attr('content') ||
-                      $('meta[name="twitter:image"]').attr('content') ||
-                      $('article img').first().attr('src') || '';
-        if (ogImg) {
-          article.imageUrl = ogImg;
+        const { imageUrl } = extractFromHtml(body, finalUrl);
+        if (imageUrl) {
+          article.imageUrl = imageUrl;
           await article.save();
         }
       } catch {
@@ -106,7 +118,7 @@ export const manualPublishNewsArticle = async (req, res, next) => {
       return sendError(res, 'Invalid identifier', 400);
     }
 
-    const { caption, scheduledFor } = req.body;
+    const { caption, mediaUrl, scheduledFor } = req.body;
     if (!caption || !caption.trim()) {
       return sendError(res, 'Post caption cannot be empty', 400);
     }
@@ -121,7 +133,7 @@ export const manualPublishNewsArticle = async (req, res, next) => {
     }
 
     const cleanCaption = caption.trim();
-    const resolvedMediaUrl = article.imageUrl || '';
+    const resolvedMediaUrl = await resolveArticleMediaUrl(article, mediaUrl);
     if (!resolvedMediaUrl) {
       return sendError(res, 'The original news image could not be found. This post cannot be published without it.', 400);
     }
@@ -246,7 +258,7 @@ export const manualDraftNewsArticle = async (req, res, next) => {
       return sendError(res, 'Invalid identifier', 400);
     }
 
-    const { caption } = req.body;
+    const { caption, mediaUrl } = req.body;
     if (!caption || !caption.trim()) {
       return sendError(res, 'Post caption cannot be empty', 400);
     }
@@ -259,6 +271,8 @@ export const manualDraftNewsArticle = async (req, res, next) => {
     if (!article) {
       return sendError(res, 'News article not found', 404);
     }
+
+    await resolveArticleMediaUrl(article, mediaUrl);
 
     const cleanCaption = caption.trim();
     let newsPost = await NewsPost.findOne({ articleId: article._id });

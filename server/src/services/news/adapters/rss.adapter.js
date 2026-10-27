@@ -82,12 +82,23 @@ export const rssAdapter = {
         const publishedAt = item.isoDate || item.pubDate ? new Date(item.isoDate || item.pubDate) : null;
         const rawContent = (item['content:encoded'] || item.content || '').toString();
         const imgMatch = rawContent.match(/<img[^>]+src=["']([^"']+)["']/i);
-        const imageUrl =
+        const rawImageUrl =
           item.enclosure?.url ||
           item['media:content']?.url ||
           item['media:content']?.['$']?.url ||
           item['media:thumbnail']?.url ||
           (imgMatch ? imgMatch[1] : '');
+        let imageUrl = '';
+        if (rawImageUrl) {
+          try {
+            const parsedImageUrl = new URL(rawImageUrl, normalizedUrl);
+            if (['http:', 'https:'].includes(parsedImageUrl.protocol)) {
+              imageUrl = parsedImageUrl.href;
+            }
+          } catch {
+            imageUrl = '';
+          }
+        }
 
         return {
           title: (item.title || 'Untitled article').trim(),

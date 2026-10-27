@@ -40,9 +40,7 @@ export const PolishArticleModal = ({ article, isOpen, onClose, onSuccess }) => {
     let isMounted = true;
     setLoadingVariations(true);
 
-    if (article.imageUrl) {
-      setImageUrl(article.imageUrl);
-    }
+    setImageUrl(article.imageUrl || '');
 
     newsApi.polishArticle(article._id)
       .then((res) => {
@@ -347,9 +345,18 @@ export const PolishArticleModal = ({ article, isOpen, onClose, onSuccess }) => {
                 </div>
               )}
 
+              <input
+                type="url"
+                className="form-control"
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                placeholder="Paste the original article image URL"
+                aria-label="Original news image URL"
+              />
+
               {!imageUrl && (
                 <span style={{ fontSize: '0.75rem', color: 'var(--danger)' }}>
-                  No original article image was found. Publishing will be blocked until one is available.
+                  No original article image was found. Paste its public image URL to publish or schedule this post.
                 </span>
               )}
             </div>
