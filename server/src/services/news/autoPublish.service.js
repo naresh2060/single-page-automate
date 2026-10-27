@@ -4,6 +4,7 @@ import { NewsArticle } from '../../models/NewsArticle.js';
 import { NewsPost } from '../../models/NewsPost.js';
 import { NewsSource } from '../../models/NewsSource.js';
 import { polishArticleCaption } from './polisher.service.js';
+import { extractArticleContent } from './articleExtract.service.js';
 import { publishNewsPost } from './pipeline.service.js';
 
 const AUTO_PUBLISH_LOCK_MS = 15 * 60 * 1000;
@@ -23,10 +24,15 @@ export const publishNextNewsArticle = async () => {
     isActive: true,
     autoPublish: true,
     excerptOnly: false
-  }).select('_id');
+  }).select('_id name excerptOnly');
   if (!sources.length) {
-    return { published: false, reason: 'no_auto_publish_sources' };
+    return {
+      published: false,
+      reason: 'no_auto_publish_sources',
+      message: 'Enable automatic publishing on an active news source.'
+    };
   }
+  const sourcesById = new Map(sources.map((source) => [source._id.toString(), source]));
 
   const protectedArticleIds = await NewsPost.find({
     pageId,
@@ -44,7 +50,6 @@ export const publishNextNewsArticle = async () => {
     sourceId: { $in: sources.map((source) => source._id) },
     processingStatus: { $in: ['discovered', 'extracted', 'generated', 'failed'] },
     extractionStatus: { $ne: 'excerpt_only' },
-    imageUrl: { $nin: ['', null] },
     $and: [
       { $or: [{ content: { $ne: '' } }, { description: { $ne: '' } }] },
       { $or: [{ autoPublishLockUntil: null }, { autoPublishLockUntil: { $lte: now } }] }
@@ -52,11 +57,16 @@ export const publishNextNewsArticle = async () => {
     ...(protectedArticleIds.length ? { _id: { $nin: protectedArticleIds } } : {})
   })
     .sort({ lastAutoPublishAttemptAt: 1, discoveredAt: 1 })
-    .limit(50);
+    .limit(10);
 
+  let blockedCount = 0;
   for (const article of candidates) {
     let post = await NewsPost.findOne({ articleId: article._id });
     if (isPostIneligibleForAutoPublish(post)) {
+      continue;
+    }
+    const source = sourcesById.get(article.sourceId.toString());
+    if (!source) {
       continue;
     }
 
@@ -82,6 +92,32 @@ export const publishNextNewsArticle = async () => {
     }
 
     let facebookPublished = false;
+    if (!claimed.imageUrl || !claimed.content) {
+      const extracted = await extractArticleContent({
+        canonicalUrl: claimed.canonicalUrl,
+        description: claimed.description,
+        excerptOnly: false,
+        initialImageUrl: claimed.imageUrl || ''
+      });
+      claimed.content = extracted.content || claimed.content;
+      claimed.imageUrl = extracted.imageUrl || claimed.imageUrl;
+      claimed.extractionStatus = extracted.extractionStatus;
+      if (extracted.extractError) {
+        claimed.lastError = extracted.extractError;
+      }
+
+      if (!claimed.imageUrl || !claimed.content || claimed.extractionStatus === 'excerpt_only' || claimed.extractionStatus === 'failed') {
+        claimed.autoPublishLockUntil = null;
+        claimed.lastError = !claimed.imageUrl
+          ? 'Automatic publishing is waiting for an original article image.'
+          : 'Automatic publishing requires a complete article extraction.';
+        await claimed.save();
+        blockedCount += 1;
+        continue;
+      }
+      await claimed.save();
+    }
+
     try {
       const polished = await polishArticleCaption({ article: claimed });
       const caption = polished.variations?.[0]?.text?.trim();
@@ -171,5 +207,10 @@ export const publishNextNewsArticle = async () => {
     }
   }
 
-  return { published: false, reason: 'no_eligible_articles' };
+  return {
+    published: false,
+    reason: candidates.length ? 'no_publishable_candidates' : 'no_eligible_articles',
+    candidateCount: candidates.length,
+    blockedCount
+  };
 };

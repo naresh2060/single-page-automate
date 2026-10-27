@@ -89,7 +89,7 @@ FACEBOOK_GRAPH_API_VERSION=v25.0
 
 # Google Gemini (backend only; never expose this key in client/.env)
 GEMINI_API_KEY=your_gemini_api_key
-GEMINI_MODEL=gemini-2.0-flash
+GEMINI_MODEL=gemini-3.8-flash
 
 CLIENT_URL=http://localhost:5173
 ```

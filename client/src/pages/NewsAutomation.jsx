@@ -174,9 +174,28 @@ export const NewsAutomation = () => {
           </h1>
         </div>
         <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-          Monitor RSS feeds and generate polished Gemini captions. Sources with automatic publishing enabled post one eligible article every 10 minutes to {pageData?.name || 'your connected Facebook Page'}.
+          Monitor RSS feeds and generate polished Gemini captions. Enable automatic publishing on a source to post eligible articles on the scheduler's configured interval.
         </p>
       </div>
+
+      {!sources.some((source) => source.isActive && source.autoPublish) && (
+        <div
+          role="alert"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.6rem',
+            padding: '0.85rem 1rem',
+            borderRadius: 'var(--radius-md)',
+            background: 'rgba(245, 158, 11, 0.1)',
+            color: 'var(--warning)',
+            fontSize: '0.84rem'
+          }}
+        >
+          <AlertTriangle size={17} />
+          Automatic publishing is off. Open Sources, edit an active source, and enable automatic publishing to start the 10-minute schedule.
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
         {[
@@ -241,7 +260,7 @@ export const NewsAutomation = () => {
               <input className="form-control" type="number" min="30" max="200" value={form.generation.captionMaxWords} onChange={(e) => updateGeneration('captionMaxWords', Number(e.target.value))} />
             </div>
             <label style={{ fontSize: '0.85rem' }}>
-              <input type="checkbox" checked={form.autoPublish} onChange={(e) => updateForm('autoPublish', e.target.checked)} /> Enable automatic publishing (one polished article every 10 minutes)
+              <input type="checkbox" checked={form.autoPublish} onChange={(e) => updateForm('autoPublish', e.target.checked)} /> Enable automatic publishing for this source
             </label>
             <label style={{ fontSize: '0.85rem' }}>
               <input type="checkbox" checked={form.excerptOnly} onChange={(e) => updateForm('excerptOnly', e.target.checked)} /> Excerpt-only mode (do not fetch the article page)
@@ -294,6 +313,19 @@ export const NewsAutomation = () => {
                       <StatusPill>{source.autoPublish ? 'Auto publish' : 'Manual approval'}</StatusPill>
                       <StatusPill>Every {source.intervalMinutes}m</StatusPill>
                     </div>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.65rem', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(source.autoPublish)}
+                        disabled={!source.isActive || busyId === source._id}
+                        onChange={(event) => runAction(
+                          source._id,
+                          () => newsApi.updateSource(source._id, { autoPublish: event.target.checked }),
+                          event.target.checked ? 'Automatic publishing enabled' : 'Automatic publishing disabled'
+                        )}
+                      />
+                      Automatically publish articles from this source
+                    </label>
                     <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.4rem' }}>
                       Last success: {formatDate(source.lastSuccessfulCheckAt)}
                     </p>
@@ -302,7 +334,9 @@ export const NewsAutomation = () => {
                     )}
                   </div>
                   <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
-                    <button className="btn btn-outline btn-sm" onClick={() => startEdit(source)}><Pencil size={13} /></button>
+                    <button className="btn btn-outline btn-sm" onClick={() => startEdit(source)} aria-label={`Edit ${source.name}`}>
+                      <Pencil size={13} /> Edit settings
+                    </button>
                     <button className="btn btn-outline btn-sm" disabled={busyId === source._id} onClick={() => runAction(source._id, () => newsApi.testFeed(source._id), 'Feed looks valid')}>Test</button>
                     <button className="btn btn-primary btn-sm" disabled={busyId === source._id} onClick={() => runAction(source._id, () => newsApi.checkSource(source._id), 'Manual check started')}>
                       <Play size={13} /> Check

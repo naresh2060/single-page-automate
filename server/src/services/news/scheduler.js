@@ -34,6 +34,8 @@ export const runAutoPublishTick = async () => {
     const result = await publishNextNewsArticle();
     if (result.published) {
       console.log(`[NewsScheduler] Published article ${result.articleId} as Facebook post ${result.postId}.`);
+    } else {
+      console.info(`[NewsScheduler] Automatic publishing skipped: ${result.message || result.reason}; candidates=${result.candidateCount ?? 0}, blocked=${result.blockedCount ?? 0}.`);
     }
     return result;
   } finally {
@@ -69,5 +71,5 @@ export const startNewsScheduler = () => {
   });
 
   started = true;
-  console.log(`🕒 News scheduler started (${config.news.schedulerTickCron}); polished auto-publishing runs every 10 minutes.`);
+  console.log(`🕒 News scheduler started (${config.news.schedulerTickCron}); polished auto-publishing runs (${AUTO_PUBLISH_CRON}).`);
 };
