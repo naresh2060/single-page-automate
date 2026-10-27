@@ -1,0 +1,23 @@
+{
+  "name": "facebook-page-automation",
+  "version": "1.0.0",
+  "description": "Full-Stack MERN Facebook Page Automation & Analytics Dashboard",
+  "scripts": {
+    "server": "npm run dev --prefix server",
+    "client": "npm run dev --prefix client",
+    "build:client": "npm run build --prefix client",
+    "install:all": "npm install --prefix server && npm install --prefix client"
+  },
+  "keywords": [
+    "facebook-graph-api",
+    "automation",
+    "mern",
+    "react",
+    "vite",
+    "nodejs",
+    "express",
+    "mongodb"
+  ],
+  "author": "",
+  "license": "ISC"
+}
