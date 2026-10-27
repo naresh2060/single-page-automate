@@ -82,7 +82,8 @@ export const processArticle = async (article, source, { feedContent = '', allowO
   const claimed = await NewsArticle.findOneAndUpdate(
     {
       _id: article._id,
-      processingStatus: { $in: ['discovered', 'extracted', 'failed'] }
+      processingStatus: { $in: ['discovered', 'extracted', 'failed'] },
+      $or: [{ autoPublishLockUntil: null }, { autoPublishLockUntil: { $lte: new Date() } }]
     },
     { $set: { processingStatus: 'extracting', lastError: null } },
     { new: true }
@@ -176,11 +177,6 @@ export const processArticle = async (article, source, { feedContent = '', allowO
   generating.processingStatus = 'generated';
   generating.lastError = null;
   await generating.save();
-
-  if (source.autoPublish && post && post.publishingStatus === 'draft' && !post.needsReview) {
-    await publishNewsPost(post._id, { auto: true });
-    post = await NewsPost.findById(post._id);
-  }
 
   return { article: generating, post };
 };

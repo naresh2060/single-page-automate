@@ -1,8 +1,11 @@
 import cron from 'node-cron';
 import { config } from '../../config/env.js';
 import { checkNewsSource, getDueSources } from './pipeline.service.js';
+import { publishNextNewsArticle } from './autoPublish.service.js';
 
+const AUTO_PUBLISH_CRON = '*/10 * * * *';
 let started = false;
+let autoPublishRunning = false;
 
 export const runDueNewsChecks = async () => {
   const due = await getDueSources();
@@ -21,6 +24,23 @@ export const runDueNewsChecks = async () => {
   return results;
 };
 
+export const runAutoPublishTick = async () => {
+  if (autoPublishRunning) {
+    return { published: false, reason: 'previous_run_still_active' };
+  }
+
+  autoPublishRunning = true;
+  try {
+    const result = await publishNextNewsArticle();
+    if (result.published) {
+      console.log(`[NewsScheduler] Published article ${result.articleId} as Facebook post ${result.postId}.`);
+    }
+    return result;
+  } finally {
+    autoPublishRunning = false;
+  }
+};
+
 export const startNewsScheduler = () => {
   if (!config.news.schedulerEnabled) {
     console.log('ℹ️ News scheduler disabled (NEWS_SCHEDULER_ENABLED=false).');
@@ -37,9 +57,17 @@ export const startNewsScheduler = () => {
   }
 
   cron.schedule(config.news.schedulerTickCron, () => {
-    void runDueNewsChecks();
+    void runDueNewsChecks().catch((error) => {
+      console.error('[NewsScheduler] Source check run failed:', error.message);
+    });
+  });
+
+  cron.schedule(AUTO_PUBLISH_CRON, () => {
+    void runAutoPublishTick().catch((error) => {
+      console.error('[NewsScheduler] Automatic article publishing failed:', error.message);
+    });
   });
 
   started = true;
-  console.log(`🕒 News scheduler started (${config.news.schedulerTickCron}). node-cron is in-memory and will pause if this process sleeps.`);
+  console.log(`🕒 News scheduler started (${config.news.schedulerTickCron}); polished auto-publishing runs every 10 minutes.`);
 };

@@ -174,7 +174,7 @@ export const NewsAutomation = () => {
           </h1>
         </div>
         <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-          Monitor RSS feeds, generate Gemini captions, and publish to {pageData?.name || 'your connected Facebook Page'} after review.
+          Monitor RSS feeds and generate polished Gemini captions. Sources with automatic publishing enabled post one eligible article every 10 minutes to {pageData?.name || 'your connected Facebook Page'}.
         </p>
       </div>
 
@@ -241,7 +241,7 @@ export const NewsAutomation = () => {
               <input className="form-control" type="number" min="30" max="200" value={form.generation.captionMaxWords} onChange={(e) => updateGeneration('captionMaxWords', Number(e.target.value))} />
             </div>
             <label style={{ fontSize: '0.85rem' }}>
-              <input type="checkbox" checked={form.autoPublish} onChange={(e) => updateForm('autoPublish', e.target.checked)} /> Enable automatic publishing (manual approval is the default)
+              <input type="checkbox" checked={form.autoPublish} onChange={(e) => updateForm('autoPublish', e.target.checked)} /> Enable automatic publishing (one polished article every 10 minutes)
             </label>
             <label style={{ fontSize: '0.85rem' }}>
               <input type="checkbox" checked={form.excerptOnly} onChange={(e) => updateForm('excerptOnly', e.target.checked)} /> Excerpt-only mode (do not fetch the article page)

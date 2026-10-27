@@ -73,6 +73,14 @@ const NewsArticleSchema = new mongoose.Schema(
     lastError: {
       type: String,
       default: null
+    },
+    autoPublishLockUntil: {
+      type: Date,
+      default: null
+    },
+    lastAutoPublishAttemptAt: {
+      type: Date,
+      default: null
     }
   },
   { timestamps: true }

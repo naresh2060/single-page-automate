@@ -151,6 +151,10 @@ npm run dev
 
 * Frontend runs at: `http://localhost:5173`
 
+### News article auto-publishing
+
+In **News Automation → Sources**, enable **automatic publishing** for each source you want to publish from. The server checks for eligible, unpublished articles every 10 minutes and publishes at most one per run, starting with the oldest. It uses the same Gemini polisher as **Polish & Post** and attaches the original article image. Sources with automatic publishing disabled remain manual-review only. Articles without an image, or marked as excerpt-only/needs-review, are not auto-published. Keep the backend running for the in-memory scheduler to run.
+
 ---
 
 ## 📘 Meta Graph API Credentials Guide
